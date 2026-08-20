@@ -1,0 +1,19 @@
+services:
+  api:
+    build: .
+    env_file: .env
+    ports:
+      - "8070:8000"
+    volumes:
+      - ./data:/app/data
+
+  ui:
+    build:
+      context: .
+      dockerfile: Dockerfile.ui
+    environment:
+      LEDGERLENS_API_URL: http://api:8000
+    ports:
+      - "8571:8501"
+    depends_on:
+      - api
