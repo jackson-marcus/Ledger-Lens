@@ -1,0 +1,27 @@
+# Pipeline configuration. Paths relative to the repo root.
+
+corpus:
+  pdf_dir: data/invoices
+  truth_dir: data/truth
+  n_invoices: 60
+  error_rate: 0.25          # fraction of invoices with injected bookkeeping errors
+  seed: 42
+
+extraction:
+  ledger_path: data/ledger.parquet
+  min_confidence_flag: 0.6  # fields below this are flagged for human review
+
+validation:
+  amount_tolerance: 0.02    # cents rounding slack
+  max_tax_rate: 0.30
+  due_days_max: 120
+
+rag:
+  policy_dir: data/policies
+  index_dir: data/policy_index
+  chunk_size: 700
+  top_k: 4
+  max_answer_tokens: 700
+
+eval:
+  experiment_name: ledgerlens
