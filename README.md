@@ -1,4 +1,4 @@
-# LedgerLens — Financial Document AI & Automated Invoice Audit Platform
+# LedgerLens — Invoice AI & Audit (Declarative Rules Engine DSL)
 
 <div align="center">
 
@@ -13,87 +13,95 @@
 
 </div>
 
-> **Enterprise financial document AI platform combining automated multi-field invoice extraction, a 14-rule deterministic accounting validation engine, and corporate expense policy RAG with exact line citations.**
+> **Financial document AI and automated invoice audit engine powered by a Declarative Domain-Specific Language (DSL) and Tree-Walking AST Interpreter — executing deterministic accounting rules, mathematical reconciliations, and expense policy RAG.**
 
 ---
 
-## 📖 Executive Summary & Value Proposition
+## 🏛️ Architecture Pattern: Declarative Rules Engine DSL + AST Interpreter
 
-**`ledgerlens`** is a production-grade, end-to-end machine learning system built with strict engineering discipline, reproducible pipelines, and enterprise MLOps best practices. It bridges the gap between theoretical statistical rigor and high-availability operational microservices.
+Hardcoding accounting validation logic in python `if-else` blocks causes audit rule drift, lacks explanation transparency, and requires code deployments for routine policy updates.
 
-## 🧾 Core Methodologies & System Architecture
-
-### 1. Multimodal Field Extraction
-- Extracts critical structured invoice headers and line items (Vendor Name, Tax ID, Invoice ID, Date, Line Quantities, Unit Prices, Subtotals, Tax Rates, Grand Total, Payment Terms) via bounding-box OCR and regex parsers.
-
-### 2. 14-Rule Deterministic Accounting Validation Engine
-- Verifies mathematical integrity: $\sum (	ext{Qty} 	imes 	ext{Price}) + 	ext{Tax} = 	ext{Grand Total}$.
-- Executes strict compliance checks: duplicate invoice detection, purchase order cross-referencing, future date blocking, tax calculation verification, and vendor blacklist screening.
-
-### 3. Accounting Policy RAG with Citations
-- Semantic search across corporate procurement and travel & expense guidelines.
-- Provides grounded compliance verdicts with verbatim policy citations and clause references.
-
-## 📊 Architecture & Pipeline
+`ledgerlens` compiles audit policies into an **Abstract Syntax Tree (AST)** evaluated by a pure tree-walking interpreter:
 
 ```mermaid
-flowchart LR
-    PDF[Invoice / Receipt PDF] --> OCR[OCR & Field Extraction]
-    OCR --> Rules[14-Rule Deterministic Audit<br/>Math, Tax, PO, Duplicates]
-    OCR --> RAG[Expense Policy RAG<br/>Semantic Search + Citations]
-    Rules & RAG --> Score[Audit Verdict & Anomaly Flags]
-    Score --> API[FastAPI :8070] --> UI[Streamlit Invoice Auditor :8571]
+graph TD
+    subgraph Input_Record ["Extracted Invoice Record"]
+        Inv["{subtotal: 100.0, tax: 8.0, total: 108.0, lines_sum: 100.0}"]
+    end
+
+    subgraph AST_Rule_Hierarchy ["Declarative AST Expression Tree"]
+        Rule["RuleNode: subtotal_plus_tax (severity='error')"]
+        Implies["ConditionNode: implies"]
+        NotNull["ConditionNode: and(is_not_null([subtotal, tax, total]))"]
+        AbsDiff["BinaryOp: abs_diff_lte"]
+        Add["BinaryOp: subtotal + tax"]
+        TotRef["FieldRef: total"]
+
+        Rule --> Implies
+        Implies --> NotNull
+        Implies --> AbsDiff
+        AbsDiff --> Add
+        AbsDiff --> TotRef
+    end
+
+    subgraph Interpreter_Engine ["Tree-Walking ASTInterpreter"]
+        Eval["ASTInterpreter.evaluate_rule()<br/>• Null-safe evaluation<br/>• Floating-point tolerance bounds<br/>• Explanatory error formatting"]
+    end
+
+    subgraph Audit_Findings ["Structured Audit Findings"]
+        F["list[Finding]<br/>[rule_id, severity, formatted_message]"]
+    end
+
+    Inv --> Eval
+    AST_Rule_Hierarchy --> Eval
+    Eval --> F
 ```
 
-## 🛠️ Tech Stack & Engineering Standards
-- **Core Engine:** Python 3.12, PyPDF, Regex, Sentence-Transformers, BM25, Claude / Ollama
-- **Serving & UI:** FastAPI, Streamlit, MLflow
-- **Testing:** 100% Pytest pass rate across extraction, math validation, and policy QA
+### AST Expression Grammar
+- **`FieldRef`**: Resolves dynamic fields from invoice context with null safety.
+- **`Literal`**: Constant scalar floats, integers, or strings.
+- **`BinaryOp`**: Arithmetic operators (`+`, `-`, `*`, `/`) and comparisons (`==`, `<`, `<=`, `>`, `>=`, `abs_diff_lte`).
+- **`ConditionNode`**: Boolean logic operators (`and`, `or`, `not`, `implies`, `is_not_null`).
+- **`RuleNode`**: Combines AST conditions with error severity and message interpolation templates.
 
+### Module Organization
+- **`rules_engine/ast_nodes.py`**: Typed immutable AST node hierarchy.
+- **`rules_engine/interpreter.py`**: Pure tree-walking `ASTInterpreter` with tolerance arithmetic.
+- **`rules_engine/engine.py`**: `DeclarativeRulesEngine` managing rulesets and audit workflows.
+- **`extraction/`**: Multimodal field extraction from digital/scanned PDFs.
+- **`rag/`**: Expense policy retriever with exact line provenance citations.
+
+---
+
+## 🧾 Core Methodologies & Financial Validation
+
+### 1. Mathematical Reconciliation Rules
+- Subtotal Integrity: $|\sum (\text{Qty}_i \times \text{Price}_i) - \text{Subtotal}| \le \epsilon$
+- Grand Total Integrity: $|(\text{Subtotal} + \text{Tax}) - \text{Grand Total}| \le \epsilon$
+- Tax Rate Sanity: $\frac{\text{Tax}}{\text{Subtotal}} \le \text{MaxTaxRate}$
+
+### 2. Expense Policy RAG with Line Citations
+- Semantic search across corporate procurement and travel & expense guidelines.
+- Grounded compliance verdicts citing verbatim clause references.
 
 ---
 
 ## 🚀 Quickstart & Setup Guide
 
-### 1. Prerequisites & Environment Setup
-Using **[uv](https://docs.astral.sh/uv/)** for lightning-fast, reproducible dependency resolution:
-
 ```bash
-# Clone the repository
 git clone https://github.com/jackson-marcus/ledgerlens.git
 cd ledgerlens
 
-# Install dependencies and pre-commit hooks
+$env:UV_CACHE_DIR = "D:\ml-projects\.uv-cache"
 uv sync --group dev
-```
 
-### 2. Run Test Suite & Code Quality Checks
-```bash
-# Run unit & integration tests with coverage
-uv run pytest --cov
-
-# Run ruff linter and formatting checks
+# Run unit tests and AST rule engine verification
+uv run pytest -q
 uv run ruff check .
-uv run ruff format --check .
-```
 
-### 3. Launch Services Locally
-```bash
-# Start FastAPI REST API (listening on port :8070)
+# Launch FastAPI (port :8070) + Streamlit auditor (port :8571)
 make api
-# Or: uv run uvicorn ledgerlens.api.main:app --reload --port 8070
-
-# Start interactive Streamlit dashboard (listening on port :8571)
 make ui
-
-# Launch local MLflow Experiment Tracking UI (listening on port :5007)
-make mlflow
-```
-
-### 4. Run with Docker Compose
-```bash
-# Spin up the complete microservice stack
-docker compose up --build
 ```
 
 ---
@@ -102,20 +110,18 @@ docker compose up --build
 
 ```
 ledgerlens/
-├── .github/workflows/ci.yml       # GitHub Actions CI pipeline (lint, test, build)
-├── configs/                      # Configuration files and hyperparameters
-├── data/                         # Data directory (raw, interim, processed)
-├── scripts/                      # Data generators and operational scripts
+├── configs/                      # Accounting tolerance & validation rules configs
+├── data/                         # Sample invoice PDFs and synthetic benchmarks
 ├── src/ledgerlens/               # Core Python package
-│   ├── api/                      # FastAPI routes, schemas, and endpoints
-│   ├── models/                   # Statistical models, ML algorithms, and estimators
-│   ├── ui/                       # Streamlit interactive application
-│   └── settings.py               # Centralized configuration & environment loader
-├── tests/                        # Comprehensive Pytest suite
-├── docker-compose.yml            # Multi-service container orchestration
-├── Dockerfile                    # Container definition for API service
-├── Makefile                      # Standardized project tasks
-└── pyproject.toml                # Pinned dependencies and tool configs
+│   ├── rules_engine/             # Declarative Rules DSL: AST nodes, interpreter, engine
+│   ├── validation/               # Validation adapter layer
+│   ├── extraction/               # OCR and invoice field parsing
+│   ├── rag/                      # Corporate expense policy retriever
+│   ├── api/                      # FastAPI REST routes
+│   └── ui/                       # Streamlit interactive invoice workspace
+├── tests/                        # Comprehensive Pytest suite covering AST rules and RAG
+├── docker-compose.yml
+└── pyproject.toml
 ```
 
 ---
@@ -127,5 +133,20 @@ ledgerlens/
 - **Upwork:** [Jackson Marcus on Upwork](https://www.upwork.com/freelancers/~012235717501ad9c7b)
 - **GitHub:** [@jackson-marcus](https://github.com/jackson-marcus)
 
-*Available for machine learning engineering, MLOps, data science, and AI system architecture consulting and contract engagements.*
+---
 
+## 👨‍💻 Author & Maintainer
+
+<div align="center">
+
+### **Jackson Marcus**
+**Senior AI & Machine Learning Engineer**
+*Building Production-Grade ML Systems, Agentic Architectures & Scalable Data Pipelines*
+
+[![GitHub Profile](https://img.shields.io/badge/GitHub-jackson--marcus-181717?style=for-the-badge&logo=github&logoColor=white)](https://github.com/jackson-marcus)
+[![Upwork Portfolio](https://img.shields.io/badge/Upwork-Top%20Rated%20Plus-14A800?style=for-the-badge&logo=upwork&logoColor=white)](https://www.upwork.com/freelancers/~012235717501ad9c7b)
+[![Email Contact](https://img.shields.io/badge/Email-wajahatanees41%40gmail.com-D14836?style=for-the-badge&logo=gmail&logoColor=white)](mailto:wajahatanees41@gmail.com)
+
+📍 *Byron, GA, USA*
+
+</div>

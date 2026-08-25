@@ -22,12 +22,12 @@ def test_bad_total_caught(make_pdf):
 
 
 def test_crazy_tax_caught(make_pdf):
-    findings, truth = _findings_for(make_pdf, 12, error="crazy_tax")
+    findings, _ = _findings_for(make_pdf, 12, error="crazy_tax")
     assert any(f.rule == "tax_rate_implausible" for f in findings)
 
 
 def test_overdue_terms_flagged(make_pdf):
-    findings, truth = _findings_for(make_pdf, 13, error="overdue_terms")
+    findings, _ = _findings_for(make_pdf, 13, error="overdue_terms")
     assert any(f.rule == "terms_unusual" for f in findings)
 
 
