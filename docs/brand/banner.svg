@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="168" viewBox="0 0 720 168" role="img" aria-label="LedgerLens — Invoice AI &amp; audit">
+  <defs><linearGradient id="b26105" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#B45309"/><stop offset="1" stop-color="#813b06"/></linearGradient></defs>
+  <rect x="28" y="28" width="112" height="112" rx="25" fill="url(#b26105)"/>
+  <g transform="translate(56.0 56.0) scale(2.3333)"><g fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h4"/></g></g>
+  <text x="168" y="78" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-size="40" font-weight="700" fill="#B45309">LedgerLens</text>
+  <text x="168" y="112" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-size="20" font-weight="400" fill="#64748b">Invoice AI &amp; audit</text>
+</svg>
