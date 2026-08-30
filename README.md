@@ -17,8 +17,6 @@
 
 </div>
 
-> **Portfolio project.** Built to demonstrate document extraction, a declarative rules-engine pattern, and cited RAG on realistic (synthetic) invoice data. Not hardened for production use.
-
 ---
 
 ## The problem
