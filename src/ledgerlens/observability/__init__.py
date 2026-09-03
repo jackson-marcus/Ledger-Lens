@@ -1,1 +1,1 @@
-"""Prometheus-shaped metrics and span tracing for the gateway."""
+"""Audit-stage timing and domain counters exposed at /metrics."""

@@ -11,6 +11,20 @@ from datetime import date
 from ledgerlens.extraction.extract import ExtractedInvoice
 from ledgerlens.settings import get_config
 
+# Every rule id a validator below can emit. The grounding layer's test checks
+# that each one has been either given a policy query or deliberately left out.
+RULE_IDS: tuple[str, ...] = (
+    "missing_fields",
+    "lines_vs_subtotal",
+    "subtotal_plus_tax",
+    "tax_rate_implausible",
+    "dates_unparseable",
+    "due_before_issue",
+    "terms_unacceptable",
+    "terms_unusual",
+    "duplicate_invoice_no",
+)
+
 
 @dataclass
 class Finding:
@@ -69,26 +83,37 @@ def check_tax_plausibility(inv: ExtractedInvoice) -> list[Finding]:
 
 
 def check_dates(inv: ExtractedInvoice) -> list[Finding]:
+    """Payment-terms checks mirror the expense policy: terms past
+    `due_days_approval` need CFO sign-off (warning); terms past `due_days_max`
+    are never acceptable (error)."""
     cfg = get_config()["validation"]
-    findings = []
     try:
         issued = date.fromisoformat(str(inv.get("invoice_date")))
         due = date.fromisoformat(str(inv.get("due_date")))
     except (ValueError, TypeError):
         return [Finding("dates_unparseable", "warning", "Invoice/due date missing or unparseable")]
     if due < issued:
-        findings.append(
+        return [
             Finding("due_before_issue", "error", f"Due date {due} precedes invoice date {issued}")
-        )
-    elif (due - issued).days > cfg["due_days_max"]:
-        findings.append(
+        ]
+    term = (due - issued).days
+    if term > cfg["due_days_max"]:
+        return [
+            Finding(
+                "terms_unacceptable",
+                "error",
+                f"Payment terms of {term} days exceed the {cfg['due_days_max']}-day maximum and cannot be accepted",
+            )
+        ]
+    if term > cfg["due_days_approval"]:
+        return [
             Finding(
                 "terms_unusual",
                 "warning",
-                f"Payment terms of {(due - issued).days} days exceed {cfg['due_days_max']}-day policy",
+                f"Payment terms of {term} days exceed {cfg['due_days_approval']} days and need CFO approval",
             )
-        )
-    return findings
+        ]
+    return []
 
 
 def check_required_fields(inv: ExtractedInvoice) -> list[Finding]:

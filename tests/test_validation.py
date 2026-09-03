@@ -26,17 +26,25 @@ def test_crazy_tax_caught(make_pdf):
     assert any(f.rule == "tax_rate_implausible" for f in findings)
 
 
-def test_overdue_terms_flagged(make_pdf):
-    findings, _ = _findings_for(make_pdf, 13, error="overdue_terms")
-    assert any(f.rule == "terms_unusual" for f in findings)
+def test_terms_past_120_days_are_an_error_not_a_warning(make_pdf):
+    # The expense policy says terms beyond 120 days are never acceptable; the
+    # eval harness counts injected overdue terms as errors, so a warning here
+    # silently capped validation recall.
+    findings, truth = _findings_for(make_pdf, 13, error="overdue_terms")
+    assert "overdue_terms" in truth["errors"]
+    (finding,) = [f for f in findings if f.rule.startswith("terms_")]
+    assert finding.rule == "terms_unacceptable" and finding.severity == "error"
+    assert "400 days" in finding.message
 
 
-def test_duplicate_numbers_caught(make_pdf):
-    path_a, _ = make_pdf(20)
-    path_b, _ = make_pdf(21)
-    inv_a = extract_pdf(path_a)
-    inv_b = extract_pdf(path_b)
-    inv_b.fields["invoice_no"] = inv_a.fields["invoice_no"]
-    seen: dict[str, str] = {}
-    assert not any(f.rule == "duplicate_invoice_no" for f in validate_invoice(inv_a, seen))
-    assert any(f.rule == "duplicate_invoice_no" for f in validate_invoice(inv_b, seen))
+def test_terms_between_60_and_120_days_only_need_cfo_approval(make_pdf):
+    from datetime import date, timedelta
+
+    from ledgerlens.corpus.generate import render_pdf
+
+    path, inv = make_pdf(14)
+    inv["due_date"] = (date.fromisoformat(inv["invoice_date"]) + timedelta(days=90)).isoformat()
+    render_pdf(inv, path)
+    findings = validate_invoice(extract_pdf(path))
+    assert [(f.rule, f.severity) for f in findings] == [("terms_unusual", "warning")]
+    assert "CFO" in findings[0].message

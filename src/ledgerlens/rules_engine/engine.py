@@ -85,9 +85,9 @@ class DeclarativeRulesEngine:
 
         # Rule 3: tax_rate <= max_tax_rate
         rule_tax_rate = RuleNode(
-            rule_id="tax_rate_unusual",
+            rule_id="tax_rate_implausible",
             description=f"Tax rate exceeds {cfg['max_tax_rate'] * 100:.0f}%",
-            severity="warning",
+            severity="error",
             condition=ConditionNode(
                 "implies",
                 [
@@ -114,7 +114,11 @@ class DeclarativeRulesEngine:
 
     def evaluate(self, invoice: ExtractedInvoice | dict[str, Any]) -> list[dict[str, Any]]:
         """Run all declarative rules against an invoice and return findings."""
-        ctx = dict(invoice) if isinstance(invoice, dict) else dict(invoice.data)
+        ctx = (
+            dict(invoice)
+            if isinstance(invoice, dict)
+            else {name: fv.value for name, fv in invoice.fields.items()}
+        )
         # Compute helper keys
         subtotal = ctx.get("subtotal")
         tax = ctx.get("tax")

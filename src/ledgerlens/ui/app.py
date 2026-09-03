@@ -64,11 +64,11 @@ with tab_ledger:
 
 with tab_upload:
     uploaded = st.file_uploader("Invoice PDF", type="pdf")
-    if uploaded is not None and st.button("Extract + validate", type="primary"):
+    if uploaded is not None and st.button("Audit invoice", type="primary"):
         r = httpx.post(
-            f"{API_URL}/extract",
+            f"{API_URL}/audit",
             files={"file": (uploaded.name, uploaded.getvalue(), "application/pdf")},
-            timeout=60,
+            timeout=120,
         )
         if r.status_code != 200:
             st.error(r.json().get("detail", r.text))
@@ -84,12 +84,25 @@ with tab_upload:
                 for k, v in body["fields"].items()
             ]
             st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
+            if body["review_fields"]:
+                st.warning("Needs a human look: " + ", ".join(body["review_fields"]))
             if body["findings"]:
                 for f in body["findings"]:
                     icon = "🛑" if f["severity"] == "error" else "⚠️"
                     st.markdown(f"{icon} **{f['rule']}** — {f['message']}")
+                    policy = f.get("policy")
+                    if policy:
+                        st.info(f"**[{policy['doc']} / {policy['section']}]** {policy['excerpt']}")
+                    else:
+                        st.caption("No policy clause matched this finding.")
             else:
                 st.success("No validation findings.")
+            st.caption(
+                "Stages: "
+                + " · ".join(
+                    f"{s['stage']} {s['ms']:.0f} ms ({s['status']})" for s in body["stages"]
+                )
+            )
 
 with tab_policy:
     provider = st.radio("Provider", ["ollama", "claude", "fake"], horizontal=True)
@@ -106,7 +119,15 @@ with tab_policy:
             st.error(r.json().get("detail", r.text))
         else:
             body = r.json()
-            st.markdown(body["answer"])
-            with st.expander(f"Sources ({len(body['sources'])})"):
+            if body.get("degraded"):
+                st.warning(
+                    f"No model answer ({body.get('reason', 'provider unavailable')}); "
+                    "showing the retrieved policy excerpts instead."
+                )
+            else:
+                st.markdown(body["answer"])
+            with st.expander(
+                f"Sources ({len(body['sources'])})", expanded=body.get("degraded", False)
+            ):
                 for s in body["sources"]:
-                    st.markdown(f"**[{s['doc']}]** {s['preview']}")
+                    st.markdown(f"**[{s['doc']} / {s['section']}]** {s['preview']}")

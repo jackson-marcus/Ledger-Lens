@@ -1,43 +1,14 @@
 """Policy RAG with a stub embedder and FakeProvider (no model downloads)."""
 
-import hashlib
-import re
-
-import numpy as np
 import pytest
 
 import ledgerlens.rag.qa as qa
 from ledgerlens.llm.base import FakeProvider
-from ledgerlens.rag.policies import POLICIES
-from ledgerlens.settings import get_config
-
-
-class _StubEmbedder:
-    def embed(self, texts):
-        for text in texts:
-            vec = np.zeros(48, dtype=np.float32)
-            for token in re.findall(r"[a-z0-9]+", text.lower()):
-                vec[int(hashlib.md5(token.encode()).hexdigest(), 16) % 48] += 1.0
-            yield vec
 
 
 @pytest.fixture(autouse=True)
-def policy_kb(tmp_path, monkeypatch):
-    cfg = get_config()
-    original = cfg["rag"]["policy_dir"]
-    kb = tmp_path / "policies"
-    kb.mkdir()
-    for name, text in POLICIES.items():
-        (kb / name).write_text(text, encoding="utf-8")
-    cfg["rag"]["policy_dir"] = str(kb)
-
-    import fastembed
-
-    monkeypatch.setattr(fastembed, "TextEmbedding", lambda *a, **k: _StubEmbedder())
-    qa.invalidate_index()
+def _kb(policy_kb):
     yield
-    cfg["rag"]["policy_dir"] = original
-    qa.invalidate_index()
 
 
 def test_retrieve_finds_relevant_policy():
@@ -59,3 +30,20 @@ def test_ask_grounds_prompt_and_cites():
     sent = provider.calls[0]["prompt"]
     assert "Policy excerpts" in sent
     assert "90-day terms" in sent
+
+
+def test_chunks_carry_their_section_and_skip_bare_titles():
+    chunks, *_ = qa._index()
+    sections = {(c.doc, c.section) for c in chunks}
+    assert ("expense-policy", "Duplicate handling") in sections
+    assert ("capitalization-policy", "Capitalization Policy") in sections
+    assert all(len(c.text.splitlines()) > 1 for c in chunks)
+
+
+def test_hits_report_where_each_retriever_ranked_them():
+    hits = qa.retrieve_hits("duplicate invoice number paid once review queue", top_k=3)
+    top = hits[0]
+    assert (top.chunk.doc, top.chunk.section) == ("expense-policy", "Duplicate handling")
+    assert top.dense_rank == 0 and top.bm25_rank == 0
+    assert top.bm25_score > hits[1].bm25_score
+    assert top.bm25_margin > 1.0

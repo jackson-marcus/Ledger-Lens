@@ -14,7 +14,8 @@ extraction:
 validation:
   amount_tolerance: 0.02    # cents rounding slack
   max_tax_rate: 0.30
-  due_days_max: 120
+  due_days_approval: 60   # longer terms need CFO sign-off (warning)
+  due_days_max: 120         # longer terms are never acceptable (error)
 
 rag:
   policy_dir: data/policies

@@ -73,3 +73,27 @@ def test_declarative_rules_engine_end_to_end():
     invalid_inv = {"subtotal": 100.0, "tax": 8.0, "total": 200.0, "lines_sum": 100.0}
     findings = engine.evaluate(invalid_inv)
     assert any(f["rule"] == "subtotal_plus_tax" for f in findings)
+
+
+def test_engine_accepts_an_extracted_invoice(make_pdf):
+    # Regression: evaluate() read `invoice.data`, an attribute ExtractedInvoice
+    # never had, so passing the real extraction object raised AttributeError.
+    from ledgerlens.extraction.extract import extract_pdf
+
+    path, _ = make_pdf(41, error="crazy_tax")
+    findings = DeclarativeRulesEngine().evaluate(extract_pdf(path))
+    assert [(f["rule"], f["severity"]) for f in findings] == [("tax_rate_implausible", "error")]
+    assert "%" in findings[0]["message"]
+
+
+def test_dsl_and_imperative_rules_agree_on_the_corpus_errors(make_pdf):
+    from ledgerlens.extraction.extract import extract_pdf
+    from ledgerlens.validation.rules import validate_invoice
+
+    engine = DeclarativeRulesEngine()
+    shared = {"lines_vs_subtotal", "subtotal_plus_tax", "tax_rate_implausible"}
+    for seed, error in [(51, "bad_total"), (52, "bad_subtotal"), (53, "crazy_tax"), (54, None)]:
+        inv = extract_pdf(make_pdf(seed, error)[0])
+        declarative = {f["rule"] for f in engine.evaluate(inv)}
+        imperative = {f.rule for f in validate_invoice(inv)} & shared
+        assert declarative == imperative, (seed, error)
